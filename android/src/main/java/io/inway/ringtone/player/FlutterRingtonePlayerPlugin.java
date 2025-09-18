@@ -13,22 +13,52 @@ import androidx.annotation.NonNull;
 
 import java.io.File;
 
+import android.app.Activity;
+import android.app.Application;
+import android.os.Bundle;
+import android.util.Log;
+
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 import io.flutter.plugin.common.MethodChannel.Result;
+import io.flutter.embedding.engine.plugins.activity.ActivityAware;
+import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
 
 /**
  * FlutterRingtonePlayerPlugin
  */
-public class FlutterRingtonePlayerPlugin implements MethodCallHandler, FlutterPlugin {
+public class FlutterRingtonePlayerPlugin implements MethodCallHandler, FlutterPlugin, ActivityAware {
     private Context context;
     private MethodChannel methodChannel;
     private RingtoneManager ringtoneManager;
     private static Ringtone ringtone;
     private MediaPlayer mediaPlayer;
+
+    @Override
+    public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
+        binding.getActivity().getApplication().registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks() {
+            @Override public void onActivityCreated(Activity activity, Bundle savedInstanceState) {}
+            @Override public void onActivityStarted(Activity activity) {}
+            @Override public void onActivityResumed(Activity activity) {}
+            @Override public void onActivityPaused(Activity activity) {}
+            @Override public void onActivityStopped(Activity activity) {}
+            @Override public void onActivitySaveInstanceState(Activity activity, Bundle outState) {}
+            @Override public void onActivityDestroyed(Activity activity) {
+                Log.i("FlutterRingtonePlayer", "onActivityDestroyed");
+                stopAllSounds(); // stop when Activity destroyed (back/swipe away)
+            }
+        });
+    }
+
+    @Override public void onDetachedFromActivityForConfigChanges() {}
+    @Override public void onReattachedToActivityForConfigChanges(@NonNull ActivityPluginBinding binding) {}
+    @Override public void onDetachedFromActivity() {
+        Log.i("FlutterRingtonePlayer", "onDetachedFromActivity");
+        stopAllSounds();
+    }
 
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
@@ -47,10 +77,8 @@ public class FlutterRingtonePlayerPlugin implements MethodCallHandler, FlutterPl
 
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
-        if (ringtone != null && ringtone.isPlaying()) {
-            ringtone.stop();
-            ringtone = null;
-        }
+        Log.i("FlutterRingtonePlayer", "onDetachedFromEngine");
+        stopAllSounds();
 
         context = null;
         methodChannel.setMethodCallHandler(null);
@@ -202,6 +230,19 @@ public class FlutterRingtonePlayerPlugin implements MethodCallHandler, FlutterPl
         } catch (Exception e) {
             e.printStackTrace();
             result.error("Exception", e.getMessage(), null);
+        }
+    }
+
+    private void stopAllSounds() {
+        Log.i("FlutterRingtonePlayer", "Stopping sound...");
+        if (ringtone != null && ringtone.isPlaying()) {
+            ringtone.stop();
+            ringtone = null;
+        }
+        if (mediaPlayer != null) {
+            mediaPlayer.stop();
+            mediaPlayer.release();
+            mediaPlayer = null;
         }
     }
 }
