@@ -23,12 +23,22 @@ import io.flutter.plugin.common.MethodChannel.Result;
 /**
  * FlutterRingtonePlayerPlugin
  */
-public class FlutterRingtonePlayerPlugin implements MethodCallHandler, FlutterPlugin {
+public class FlutterRingtonePlayerPlugin implements MethodCallHandler, FlutterPlugin, ActivityAware {
     private Context context;
     private MethodChannel methodChannel;
     private RingtoneManager ringtoneManager;
     private static Ringtone ringtone;
     private MediaPlayer mediaPlayer;
+
+    @Override
+    public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
+        binding.getActivity().getApplication().registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks() {
+            @Override
+            public void onActivityDestroyed(Activity activity) {
+                stopAllSounds();
+            }
+        });
+    }
 
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
@@ -47,10 +57,7 @@ public class FlutterRingtonePlayerPlugin implements MethodCallHandler, FlutterPl
 
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
-        if (ringtone != null && ringtone.isPlaying()) {
-            ringtone.stop();
-            ringtone = null;
-        }
+        stopAllSounds();
 
         context = null;
         methodChannel.setMethodCallHandler(null);
@@ -202,6 +209,18 @@ public class FlutterRingtonePlayerPlugin implements MethodCallHandler, FlutterPl
         } catch (Exception e) {
             e.printStackTrace();
             result.error("Exception", e.getMessage(), null);
+        }
+    }
+
+    private void stopAllSounds() {
+        if (ringtone != null && ringtone.isPlaying()) {
+            ringtone.stop();
+            ringtone = null;
+        }
+        if (mediaPlayer != null) {
+            mediaPlayer.stop();
+            mediaPlayer.release();
+            mediaPlayer = null;
         }
     }
 }
